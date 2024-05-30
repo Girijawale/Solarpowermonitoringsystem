@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>7 Days Data - Solar Power Monitoring</title>
+    <style>
+        /* General Styles */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        header {
+            background-color: #333;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        header h1 {
+            margin: 0;
+        }
+
+        header p {
+            margin: 5px 0 0;
+            font-size: 1.2em;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background-image: url('solar-panel.jpg');
+            background-size: cover;
+            background-position: center;
+        }
+
+        .data {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        .chart-container {
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            margin: 10px;
+            text-align: center;
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .chart-container h3 {
+            color: #007bff;
+            margin-bottom: 10px;
+            font-size: 1.5em;
+        }
+
+        .chart {
+            margin: 20px 0;
+        }
+
+        footer {
+            background-color: #333;
+            color: white;
+            text-align: center;
+            padding: 10px 0;
+            font-size: 0.9em;
+        }
+
+        #line_chart_div {
+            width: 100%;
+            height: 500px;
+        }
+    </style>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script type="text/javascript">
+        google.charts.load('current', {'packages':['gauge', 'corechart']});
+        google.charts.setOnLoadCallback(drawGaugeCharts);
+        google.charts.setOnLoadCallback(drawLineChart);
+
+        function drawGaugeCharts() {
+            var tempData = google.visualization.arrayToDataTable([
+                ['Label', 'Value'],
+                ['Temperature', 0]
+            ]);
+
+            var voltData = google.visualization.arrayToDataTable([
+                ['Label', 'Value'],
+                ['Voltage', 0]
+            ]);
+
+            var currData = google.visualization.arrayToDataTable([
+                ['Label', 'Value'],
+                ['Current', 0]
+            ]);
+
+            var options = {
+                width: 300,
+                height: 300,
+                redFrom: 90, redTo: 100,
+                yellowFrom: 75, yellowTo: 90,
+                minorTicks: 5
+            };
+
+            var tempChart = new google.visualization.Gauge(document.getElementById('gauge_temp'));
+            var voltChart = new google.visualization.Gauge(document.getElementById('gauge_volt'));
+            var currChart = new google.visualization.Gauge(document.getElementById('gauge_curr'));
+
+            tempChart.draw(tempData, options);
+            voltChart.draw(voltData, options);
+            currChart.draw(currData, options);
+
+            function fetchData() {
+                Papa.parse('7-days-data.csv', {
+                    download: true,
+                    header: true,
+                    complete: function(results) {
+                        console.log('PapaParse results:', results);
+
+                        if (results.errors.length) {
+                            console.error('Parsing errors:', results.errors);
+                            return;
+                        }
+
+                        var sensorData = results.data;
+                        var temperatureSum = 0, voltageSum = 0, currentSum = 0;
+                        var count = 0;
+
+                        for (var i = 0; i < sensorData.length; i++) {
+                            var temp = parseFloat(sensorData[i].Temperature || sensorData[i].Temperatur);
+                            var volt = parseFloat(sensorData[i].Voltage);
+                            var curr = parseFloat(sensorData[i].Current);
+
+                            if (!isNaN(temp) && !isNaN(volt) && !isNaN(curr)) {
+                                temperatureSum += temp;
+                                voltageSum += volt;
+                                currentSum += curr;
+                                count++;
+                            }
+                        }
+
+                        if (count === 0) {
+                            console.warn('No valid data found');
+                            return;
+                        }
+
+                        var avgTemperature = temperatureSum / count;
+                        var avgVoltage = voltageSum / count;
+                        var avgCurrent = currentSum / count;
+
+                        console.log('Average Temperature:', avgTemperature);
+                        console.log('Average Voltage:', avgVoltage);
+                        console.log('Average Current:', avgCurrent);
+
+                        tempData.setValue(0, 1, avgTemperature);
+                        voltData.setValue(0, 1, avgVoltage);
+                        currData.setValue(0, 1, avgCurrent);
+
+                        tempChart.draw(tempData, options);
+                        voltChart.draw(voltData, options);
+                        currChart.draw(currData, options);
+                    },
+                    error: function(error) {
+                        console.error('Error fetching the CSV file:', error);
+                    }
+                });
+            }
+
+            fetchData();
+            setInterval(fetchData, 10000); // Fetch data every 10 seconds
+        }
+
+        function drawLineChart() {
+            var data = google.visualization.arrayToDataTable([
+                ['Time', 'Voltage', 'Current'],
+                // Sample data, replace with your own
+                ['1',  1000,  400],
+                ['2',  1170,  460],
+                ['3',  660,  1120],
+                ['4',  1030,  540]
+            ]);
+
+            var options = {
+                title: 'Voltage and Current over Time',
+                curveType: 'function',
+                legend: { position: 'bottom' }
+            };
+
+            var chart = new google.visualization.LineChart(document.getElementById('line_chart_div'));
+
+            chart.draw(data, options);
+        }
+    </script>
+</head>
+<body>
+    <header>
+        <h1>Solar Power Monitoring System</h1>
+        <p>7 Days Data</p>
+    </header>
+    
+    <main>
+        <div class="data">
+            <div class="chart-container">
+                <h3>Temperature</h3>
+                <div id="gauge_temp" class="chart"></div>
+            </div>
+            <div class="chart-container">
+                <h3>Voltage</h3>
+                <div id="gauge_volt" class="chart"></div>
+            </div>
+            <div class="chart-container">
+                <h3>Current</h3>
+                <div id="gauge_curr" class="chart"></div>
+            </div>
+            <div class="chart-container" style="width: 100%;">
+                <h3>Voltage and Current over Time</h3>
+                <div id="line_chart_div"></div>
+            </div>
+        </div>
+    </main>
+    
+    <footer>
+        <p>Made by Gourav and Sairaj | &copy; 2024 Solar Power Monitoring System</p>
+    </footer>
+</body>
+</html>
